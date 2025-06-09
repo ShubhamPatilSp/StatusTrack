@@ -1,0 +1,12 @@
+   fastapi>=0.100.0
+   uvicorn[standard]>=0.20.0
+   pydantic[email]>=2.0.0
+   pymongo>=4.0.0
+   python-dotenv>=1.0.0
+pydantic-settings>=1.0.0
+   # For Auth0 JWT validation later
+   python-jose[cryptography]>=3.3.0
+   # For WebSockets later
+   websockets>=10.0
+   httpx>=0.28.0 # For making HTTP requests in auth_utils
+   requests>=2.20.0 # For fetching JWKS in auth_utils.py
