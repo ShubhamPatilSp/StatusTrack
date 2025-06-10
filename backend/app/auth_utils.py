@@ -1,12 +1,15 @@
 import json
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2AuthorizationCodeBearer, SecurityScopes
-import httpx # For making HTTP requests to get JWKS
+from fastapi.security import OAuth2AuthorizationCodeBearer
+import httpx
 from jose import jwt, JWTError
 from pydantic import BaseModel, Field
 from typing import Dict, Any, List, Optional
+from datetime import datetime
 
 from app.config import settings
+from app.database import get_database, AsyncIOMotorDatabase
+from app.models import User, UserCreate
 
 # --- Auth0 Configuration ---
 AUTH0_DOMAIN = settings.AUTH0_DOMAIN
@@ -134,22 +137,75 @@ async def get_current_user_token_payload(token: str = Depends(oauth2_scheme)) ->
 
 # --- Dependency for checking scopes/permissions (RBAC) ---
 # This is a more advanced dependency that checks for required scopes/permissions in the token.
+async def get_current_active_db_user(
+    token_payload: TokenPayload = Depends(get_current_user_token_payload),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+) -> User:
+    """
+    This dependency is now hardened against crashes.
+    1. Fetches user from DB based on auth0_id.
+    2. If user doesn't exist, creates them.
+    3. Catches ALL exceptions and returns a 500 HTTPException instead of crashing.
+    """
+    try:
+        users_collection = db["users"]
+        auth0_id = token_payload.sub
+
+        user_doc = await users_collection.find_one({"auth0_id": auth0_id})
+
+        if user_doc:
+            return User(**user_doc)
+        else:
+            new_user_data = UserCreate(
+                auth0_id=auth0_id,
+                email=token_payload.email,
+                name=token_payload.name,
+                picture=str(token_payload.picture) if token_payload.picture else None
+            )
+            
+            user_to_insert = new_user_data.model_dump(exclude_unset=True)
+            now = datetime.utcnow()
+            user_to_insert["created_at"] = now
+            user_to_insert["updated_at"] = now
+
+            result = await users_collection.insert_one(user_to_insert)
+            
+            created_user_doc = await users_collection.find_one({"_id": result.inserted_id})
+            if not created_user_doc:
+                 raise HTTPException(status_code=500, detail="Failed to retrieve user after creation.")
+            
+            return User(**created_user_doc)
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An internal error occurred while processing user information: {str(e)}"
+        )
+
 class SecurityScopesChecker:
     def __init__(self, required_permissions: Optional[List[str]] = None):
         self.required_permissions = set(required_permissions) if required_permissions else set()
 
     async def __call__(self, payload: TokenPayload = Depends(get_current_user_token_payload)) -> TokenPayload:
         if not self.required_permissions:
-            return payload # No specific permissions required
+            return payload  # No permissions required for this endpoint.
 
+        # Get permissions from both 'permissions' and 'scope' claims.
+        # 'scope' is a space-delimited string.
         token_permissions = set(payload.permissions or [])
-        
-        for required_perm in self.required_permissions:
-            if required_perm not in token_permissions:
-                raise AuthError(
-                    detail=f"Missing required permission: {required_perm}", 
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
+        if payload.scope:
+            token_permissions.update(payload.scope.split())
+
+        # Check if all required permissions are present in the token.
+        if not self.required_permissions.issubset(token_permissions):
+            missing_perms = self.required_permissions - token_permissions
+            raise AuthError(
+                detail=f"Missing required permissions: {', '.join(missing_perms)}",
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+            
         return payload
 
 # Example usage of SecurityScopesChecker for an endpoint requiring 'read:data' permission:

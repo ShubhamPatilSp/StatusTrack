@@ -72,6 +72,7 @@ class ServiceStatusEnum(str, Enum):
     PARTIAL_OUTAGE = "Partial Outage"
     MAJOR_OUTAGE = "Major Outage"
     MAINTENANCE = "Under Maintenance"
+    MINOR_OUTAGE = "Minor Outage"
 
 class IncidentStatusEnum(str, Enum):
     INVESTIGATING = "Investigating"
@@ -129,7 +130,7 @@ class Team(MongoBaseModel):
 # Service Management Models
 class Service(MongoBaseModel):
     name: str = Field(..., min_length=1, max_length=100)
-    organization_id: Optional[PyObjectId] = None # Made optional to load demo data
+    organization_id: PyObjectId # Now required
     description: Optional[str] = None
     status: ServiceStatusEnum = ServiceStatusEnum.OPERATIONAL
     tags: List[str] = []
@@ -194,7 +195,7 @@ class TeamUpdate(BaseModel):
 
 class ServiceCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
-    organization_id: Optional[PyObjectId] = None # Made optional for now
+    organization_id: PyObjectId # Now required
     description: Optional[str] = None
     status: ServiceStatusEnum = ServiceStatusEnum.OPERATIONAL
     tags: List[str] = []

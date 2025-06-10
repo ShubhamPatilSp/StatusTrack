@@ -1,15 +1,15 @@
-from pymongo import MongoClient
-from pymongo.database import Database
-from .config import settings
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
+from pymongo.database import Database # Keep for type hinting if some parts still expect it, or remove if fully async
+from app.config import settings
 
 class MongoDB:
-    client: MongoClient = None
-    db: Database = None
+    client: AsyncIOMotorClient = None
+    db: AsyncIOMotorDatabase = None
 
 mongodb = MongoDB()
 
 def connect_to_mongo():
-    mongodb.client = MongoClient(settings.MONGODB_URL)
+    mongodb.client = AsyncIOMotorClient(settings.MONGODB_URL)
     mongodb.db = mongodb.client[settings.MONGODB_DB_NAME]
     print(f"Successfully connected to MongoDB: {settings.MONGODB_DB_NAME}")
     # You can add a ping command here to verify connection if needed
@@ -24,7 +24,7 @@ def close_mongo_connection():
         mongodb.client.close()
         print("MongoDB connection closed.")
 
-def get_database() -> Database:
+def get_database() -> AsyncIOMotorDatabase:
     if mongodb.db is None:
         # This case should ideally not happen if connect_to_mongo is called at startup
         print("Warning: Database not initialized. Attempting to connect.")
