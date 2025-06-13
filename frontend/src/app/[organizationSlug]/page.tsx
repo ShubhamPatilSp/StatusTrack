@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import PublicStatusPageClient from '@/components/public/PublicStatusPageClient';
-import { Organization, Service, Incident } from '@/types';
+import { Organization, Service, Incident } from '@/types/index';
 
 interface PublicStatusData {
   organization: Partial<Organization> & { name: string };

@@ -3,11 +3,11 @@
 import { FC, useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { PlusCircle, Edit, Trash2 } from 'lucide-react';
-import { Service, Organization } from '@/types';
+import { Service, Organization, ServiceStatus, ServiceFormData } from '@/types/index';
 
 import StatusBadge from './StatusBadge';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
-import ServiceFormModal, { ServiceFormData } from './ServiceFormModal';
+import ServiceFormModal from './ServiceFormModal';
 
 // This is the main client component for the page
 const ServicesClientPage: FC = () => {

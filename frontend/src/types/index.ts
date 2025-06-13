@@ -1,13 +1,14 @@
 /**
  * Defines the status of a service. These values should align with the backend.
  */
-export type ServiceStatus =
-  | 'Operational'
-  | 'Degraded Performance'
-  | 'Partial Outage'
-  | 'Major Outage'
-  | 'Under Maintenance'
-  | 'Minor Outage';
+export enum ServiceStatus {
+  OPERATIONAL = 'Operational',
+  DEGRADED_PERFORMANCE = 'Degraded Performance',
+  PARTIAL_OUTAGE = 'Partial Outage',
+  MAJOR_OUTAGE = 'Major Outage',
+  UNDER_MAINTENANCE = 'Under Maintenance',
+  MINOR_OUTAGE = 'Minor Outage',
+}
 
 /**
  * Represents a single historical record of a service status change.

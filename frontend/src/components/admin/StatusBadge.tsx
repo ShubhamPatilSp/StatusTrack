@@ -1,21 +1,21 @@
 import { FC } from 'react';
-import { ServiceStatus } from '@/types';
+import { ServiceStatus } from '@/types/index';
 
 interface StatusBadgeProps {
   status: ServiceStatus;
 }
 
 const statusStyles: Record<ServiceStatus, string> = {
-  'Operational': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-  'Degraded Performance': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-  'Partial Outage': 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
-  'Major Outage': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
-  'Under Maintenance': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-  'Minor Outage': 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300'
+  [ServiceStatus.OPERATIONAL]: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+  [ServiceStatus.DEGRADED_PERFORMANCE]: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+  [ServiceStatus.PARTIAL_OUTAGE]: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
+  [ServiceStatus.MAJOR_OUTAGE]: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+  [ServiceStatus.UNDER_MAINTENANCE]: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+  [ServiceStatus.MINOR_OUTAGE]: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300'
 };
 
 const StatusBadge: FC<StatusBadgeProps> = ({ status }) => {
-  const style = statusStyles[status as keyof typeof statusStyles] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+  const style = statusStyles[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
 
   return (
     <span

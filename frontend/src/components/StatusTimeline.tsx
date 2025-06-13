@@ -1,4 +1,4 @@
-import { Incident, Service, ServiceStatusHistory } from '@/types';
+import { Incident, Service, ServiceStatusHistory } from '@/types/index';
 import { format } from 'date-fns';
 
 interface StatusTimelineProps {

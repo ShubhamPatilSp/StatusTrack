@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
-import { Service, ServiceStatus } from '@/types';
+import { Service, ServiceStatus } from '@/types/index';
 
 interface DailyUptimeStatus {
   date: string;

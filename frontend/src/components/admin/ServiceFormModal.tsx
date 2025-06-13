@@ -1,8 +1,7 @@
 import { FC, useState, useEffect, FormEvent } from 'react';
-import { Service, Organization, ServiceStatus } from '@/types';
+import { Service, Organization, ServiceStatus, ServiceFormData } from '@/types/index';
 
-// Use Omit to create a type for new service data, as `id` and dates are backend-generated.
-export type ServiceFormData = Omit<Service, 'id' | 'created_at' | 'updated_at'>;
+
 
 interface ServiceFormModalProps {
   isOpen: boolean;
@@ -16,7 +15,7 @@ interface ServiceFormModalProps {
 const ServiceFormModal: FC<ServiceFormModalProps> = ({ isOpen, onClose, onSave, isSaving, serviceToEdit, organizations }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [status, setStatus] = useState<ServiceStatus>('Operational');
+  const [status, setStatus] = useState<ServiceStatus>(ServiceStatus.OPERATIONAL);
   const [organizationId, setOrganizationId] = useState<string>('');
 
   useEffect(() => {
@@ -29,7 +28,7 @@ const ServiceFormModal: FC<ServiceFormModalProps> = ({ isOpen, onClose, onSave, 
       // Reset form when adding a new service
       setName('');
       setDescription('');
-      setStatus('Operational');
+      setStatus(ServiceStatus.OPERATIONAL);
       setOrganizationId(organizations[0]?.id || '');
     }
   }, [serviceToEdit, isOpen, organizations]);

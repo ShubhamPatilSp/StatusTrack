@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Keep only one import for Select
 import { Textarea } from "@/components/ui/textarea";
-import { Service, ServiceStatus, Organization, ServiceFormData } from "@/types";
+import { Service, ServiceStatus, Organization, ServiceFormData } from "@/types/index";
 
 interface AddServiceFormProps {
   organizations: Organization[]; 
