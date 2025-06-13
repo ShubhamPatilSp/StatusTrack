@@ -1,10 +1,12 @@
+import re
+import random
 from fastapi import APIRouter, HTTPException, Depends, status
 from typing import List, Optional
 from pymongo.database import Database
 from bson import ObjectId
 from datetime import datetime
 
-from app.models import Organization, OrganizationCreate, OrganizationUpdate, PyObjectId, OrganizationMember, UserRoleEnum, User, OrganizationMemberAdd, OrganizationMemberRoleUpdate
+from app.domain import Organization, OrganizationCreate, OrganizationUpdate, PyObjectId, OrganizationMember, UserRoleEnum, User, OrganizationMemberAdd, OrganizationMemberRoleUpdate, OrganizationWithPopulatedMembers, PopulatedMember, Service, Incident, IncidentStatusEnum
 from app.database import get_database
 from app.auth_utils import get_current_user_token_payload, TokenPayload
 
@@ -24,7 +26,16 @@ async def create_organization(
     Create a new organization.
     The user creating the organization will be set as its owner.
     """
+    # Generate a unique slug
+    base_slug = re.sub(r'[^a-z0-9]+', '-', org_in.name.lower()).strip('-')
+    slug = base_slug
+    counter = 1
+    while await db.organizations.find_one({"slug": slug}):
+        slug = f"{base_slug}-{counter}"
+        counter += 1
+
     org_dict = org_in.model_dump()
+    org_dict["slug"] = slug
     org_dict["created_at"] = datetime.utcnow()
     org_dict["updated_at"] = datetime.utcnow()
 
@@ -95,18 +106,98 @@ async def list_organizations(
     user_internal_id = User(**user_doc).id
 
     cursor = db.organizations.find({"members.user_id": user_internal_id})
-    organizations_docs = await cursor.to_list(length=100) # Consume cursor asynchronously
-    return [Organization(**doc) for doc in organizations_docs]
+    organizations_docs = await cursor.to_list(length=100)
+    
+    updated_orgs = []
+    for doc in organizations_docs:
+        if "slug" not in doc or not doc["slug"]:
+            # Generate and backfill slug for old records
+            base_slug = re.sub(r'[^a-z0-9]+', '-', doc['name'].lower()).strip('-')
+            slug = base_slug
+            counter = 1
+            # Ensure slug is unique
+            while await db.organizations.find_one({"slug": slug, "_id": {"$ne": doc["_id"]}}):
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            
+            await db.organizations.update_one(
+                {"_id": doc["_id"]},
+                {"$set": {"slug": slug, "updated_at": datetime.utcnow()}}
+            )
+            doc["slug"] = slug # Update the doc in memory for the response
+        
+        updated_orgs.append(Organization(**doc))
 
-@router.get("/{org_id}", response_model=Organization)
+    return updated_orgs
+
+@router.get("/{org_id}", response_model=OrganizationWithPopulatedMembers, summary="Get organization with full member details")
 async def get_organization(org_id: PyObjectId, db: Database = Depends(get_database), payload: TokenPayload = Depends(get_current_user_token_payload)):
     """
-    Retrieve a specific organization by its ID.
+    Retrieve a specific organization by its ID, with full details for each member.
     """
-    organization = await db.organizations.find_one({"_id": org_id})
-    if organization:
-        return Organization(**organization)
-    raise HTTPException(status_code=404, detail=f"Organization with id {org_id} not found")
+    # 1. Permission check: Ensure user is a member of the org
+    requesting_user_doc = await db.users.find_one({"auth0_id": payload.sub})
+    if not requesting_user_doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Requesting user not found.")
+    requesting_user_id = User(**requesting_user_doc).id
+
+    organization_doc = await db.organizations.find_one({
+        "_id": org_id,
+        "members.user_id": requesting_user_id
+    })
+
+    if not organization_doc:
+        raise HTTPException(status_code=404, detail=f"Organization not found or user is not a member.")
+    
+    # 2. Populate member details
+    member_ids = [member['user_id'] for member in organization_doc.get('members', [])]
+    
+    if member_ids:
+        users_cursor = db.users.find({"_id": {"$in": member_ids}})
+        users_list = await users_cursor.to_list(length=len(member_ids))
+        users_map = {user['_id']: user for user in users_list}
+
+        populated_members = []
+        for member in organization_doc.get('members', []):
+            user_details = users_map.get(member['user_id'])
+            if user_details:
+                populated_members.append(PopulatedMember(
+                    id=str(user_details['_id']),
+                    name=user_details.get('name'),
+                    email=user_details.get('email'),
+                    picture=user_details.get('picture'),
+                    role=member['role']
+                ))
+        organization_doc['members'] = populated_members
+
+    return organization_doc
+
+@router.get("/public/{organization_slug}")
+async def get_public_organization_status(organization_slug: str, db: Database = Depends(get_database)):
+    """
+    Retrieve public status information for an organization, including its services and active incidents.
+    This endpoint is public and does not require authentication.
+    """
+    organization_doc = await db.organizations.find_one({"slug": organization_slug})
+    if not organization_doc:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    organization = Organization(**organization_doc)
+
+    services_cursor = db.services.find({"organization_id": organization.id})
+    services = [Service(**s) async for s in services_cursor]
+
+    # Fetch active incidents (not resolved)
+    incidents_cursor = db.incidents.find({
+        "organization_id": organization.id,
+        "status": {"$ne": IncidentStatusEnum.RESOLVED}
+    }).sort("created_at", -1) # Sort by most recent
+    incidents = [Incident(**i) async for i in incidents_cursor]
+
+    return {
+        "organization": {"name": organization.name, "logo_url": organization.logo_url},
+        "services": services,
+        "incidents": incidents
+    }
 
 @router.put("/{org_id}", response_model=Organization)
 async def update_organization(

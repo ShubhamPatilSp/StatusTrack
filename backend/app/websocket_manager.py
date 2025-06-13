@@ -1,47 +1,26 @@
-from typing import List, Dict, Any
-from fastapi import WebSocket
-import json
+from typing import Dict, Any
 
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: List[WebSocket] = []
+        self.sio = None  # Will be set during startup
 
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
+    async def emit_service_updated(self, data: Dict[str, Any], organization_id: str):
+        """Emit service update event to connected clients."""
+        if self.sio:
+            await self.sio.emit('service_updated', data, room=organization_id)
 
-    def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
+    async def emit_incident_updated(self, data: Dict[str, Any], organization_id: str):
+        """Emit incident update event to connected clients."""
+        if self.sio:
+            await self.sio.emit('incident_updated', data, room=organization_id)
 
-    async def send_personal_message(self, message: str, websocket: WebSocket):
-        await websocket.send_text(message)
-
-    async def send_personal_json(self, data: Dict[str, Any], websocket: WebSocket):
-        await websocket.send_json(data)
-
-    async def broadcast_text(self, message: str):
-        for connection in self.active_connections:
-            try:
-                await connection.send_text(message)
-            except Exception as e:
-                # Handle potential errors, e.g., client disconnected abruptly
-                print(f"Error sending text to a websocket: {e}")
-                # Optionally remove the connection if send fails repeatedly
-                # self.disconnect(connection) # Be careful with modifying list while iterating
-                pass
-
-    async def broadcast_json(self, data: Dict[str, Any]):
-        # Convert ObjectId to str for JSON serialization if necessary
-        # This might be better handled by a custom JSON encoder in a real app
-        # or by ensuring data passed here is already serialized properly.
-        for connection in self.active_connections:
-            try:
-                await connection.send_json(data)
-            except Exception as e:
-                print(f"Error sending JSON to a websocket: {e}")
-                # Optionally remove the connection
-                pass
+    async def broadcast_json(self, payload: Dict[str, Any], organization_id: str):
+        """Broadcast a generic JSON payload to a specific organization room."""
+        if self.sio:
+            event = payload.get("event")
+            data = payload.get("data")
+            if event and data:
+                await self.sio.emit(event, data, room=organization_id)
 
 # Global instance of ConnectionManager
 manager = ConnectionManager()

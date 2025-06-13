@@ -4,7 +4,7 @@ from pymongo.database import Database
 from bson import ObjectId
 from datetime import datetime
 
-from app.models import Team, TeamCreate, TeamUpdate, PyObjectId, TeamMember, UserRoleEnum, User, Organization, TeamMemberAdd, TeamMemberRoleUpdate
+from app.domain import Team, TeamCreate, TeamUpdate, PyObjectId, TeamMember, UserRoleEnum, User, Organization, TeamMemberAdd, TeamMemberRoleUpdate
 from app.database import get_database
 from app.auth_utils import get_current_user_token_payload, TokenPayload
 
@@ -34,7 +34,7 @@ async def create_team(
     if not payload.sub or not payload.email:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Auth0 user ID (sub) and email are required from token.")
 
-    user_doc = db.users.find_one({"auth0_id": payload.sub})
+    user_doc = await db.users.find_one({"auth0_id": payload.sub})
     current_user_id: PyObjectId
 
     if user_doc:
@@ -49,7 +49,7 @@ async def create_team(
             update_data["email"] = payload.email
         if update_data:
             update_data["updated_at"] = datetime.utcnow()
-            db.users.update_one({"_id": current_user_id}, {"$set": update_data})
+            await db.users.update_one({"_id": current_user_id}, {"$set": update_data})
     else:
         new_user_data = {
             "auth0_id": payload.sub,
@@ -64,7 +64,7 @@ async def create_team(
         except Exception as e:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid user data from token: {e}")
         
-        insert_result = db.users.insert_one(user_to_create.model_dump(by_alias=True, exclude_none=True))
+        insert_result = await db.users.insert_one(user_to_create.model_dump(by_alias=True, exclude_none=True))
         current_user_id = insert_result.inserted_id
         if not current_user_id:
              raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create user record for team membership.")
@@ -73,8 +73,8 @@ async def create_team(
     initial_member = TeamMember(user_id=current_user_id, role=UserRoleEnum.ADMIN)
     team_dict["members"] = [initial_member.model_dump(exclude_none=True)]
 
-    result = db.teams.insert_one(team_dict)
-    created_team_doc = db.teams.find_one({"_id": result.inserted_id})
+    result = await db.teams.insert_one(team_dict)
+    created_team_doc = await db.teams.find_one({"_id": result.inserted_id})
     if created_team_doc:
         return Team(**created_team_doc)
     raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create team")
@@ -93,16 +93,16 @@ async def list_teams(
         query["organization_id"] = organization_id
     
     teams = []
-    for team_doc in db.teams.find(query).sort("name", 1):
-        teams.append(Team(**team_doc))
-    return teams
+    cursor = db.teams.find(query).sort("name", 1)
+    teams = await cursor.to_list(length=100)
+    return [Team(**team_doc) for team_doc in teams]
 
 @router.get("/{team_id}", response_model=Team)
 async def get_team(team_id: PyObjectId, db: Database = Depends(get_database), payload: TokenPayload = Depends(get_current_user_token_payload)):
     """
     Retrieve a specific team by its ID.
     """
-    team_doc = db.teams.find_one({"_id": team_id})
+    team_doc = await db.teams.find_one({"_id": team_id})
     if team_doc:
         return Team(**team_doc)
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Team with id {team_id} not found")
@@ -123,14 +123,14 @@ async def update_team(
 
     team_update_data["updated_at"] = datetime.utcnow()
 
-    result = db.teams.update_one(
+    update_result = await db.teams.update_one(
         {"_id": team_id},
         {"$set": team_update_data}
     )
-    if result.matched_count == 0:
+    if update_result.matched_count == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Team with id {team_id} not found")
     
-    updated_team_doc = db.teams.find_one({"_id": team_id})
+    updated_team_doc = await db.teams.find_one({"_id": team_id})
     if updated_team_doc:
         return Team(**updated_team_doc)
     raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve updated team")
@@ -141,8 +141,8 @@ async def delete_team(team_id: PyObjectId, db: Database = Depends(get_database),
     Delete a team by its ID.
     """
     # TODO: Consider implications for team members or resources associated with the team.
-    result = db.teams.delete_one({"_id": team_id})
-    if result.deleted_count == 0:
+    delete_result = await db.teams.delete_one({"_id": team_id})
+    if delete_result.deleted_count == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Team with id {team_id} not found")
     return
 
@@ -161,19 +161,19 @@ async def add_team_member(
     # 1. Get requesting user's internal ID
     if not payload.sub:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Auth0 user ID (sub) is required from token.")
-    requesting_user_doc = db.users.find_one({"auth0_id": payload.sub})
+    requesting_user_doc = await db.users.find_one({"auth0_id": payload.sub})
     if not requesting_user_doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Requesting user not found in database.")
     requesting_user_internal_id = User(**requesting_user_doc).id
 
     # 2. Retrieve the team
-    team_doc = db.teams.find_one({"_id": team_id})
+    team_doc = await db.teams.find_one({"_id": team_id})
     if not team_doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Team with id {team_id} not found")
     team = Team(**team_doc)
 
     # 3. Retrieve the parent organization for permission checks
-    organization_doc = db.organizations.find_one({"_id": team.organization_id})
+    organization_doc = await db.organizations.find_one({"_id": team.organization_id})
     if not organization_doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Parent organization with id {team.organization_id} not found for team {team_id}")
     organization = Organization(**organization_doc)
@@ -187,7 +187,7 @@ async def add_team_member(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User does not have permission to add members to this team.")
 
     # 5. Validate the user to be added
-    user_to_add_doc = db.users.find_one({"_id": member_data.user_id})
+    user_to_add_doc = await db.users.find_one({"_id": member_data.user_id})
     if not user_to_add_doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"User with id {member_data.user_id} to be added not found.")
 
@@ -203,7 +203,7 @@ async def add_team_member(
 
     # 6. Add the member
     new_team_member = TeamMember(user_id=member_data.user_id, role=member_data.role)
-    update_result = db.teams.update_one(
+    update_result = await db.teams.update_one(
         {"_id": team_id},
         {"$push": {"members": new_team_member.model_dump(exclude_none=True)}, "$set": {"updated_at": datetime.utcnow()}}
     )
@@ -211,7 +211,7 @@ async def add_team_member(
     if update_result.modified_count == 0:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to add member to team.")
 
-    updated_team_doc = db.teams.find_one({"_id": team_id})
+    updated_team_doc = await db.teams.find_one({"_id": team_id})
     if not updated_team_doc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve team after adding member.")
         
@@ -233,19 +233,19 @@ async def remove_team_member(
     # 1. Get requesting user's internal ID
     if not payload.sub:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Auth0 user ID (sub) is required from token.")
-    requesting_user_doc = db.users.find_one({"auth0_id": payload.sub})
+    requesting_user_doc = await db.users.find_one({"auth0_id": payload.sub})
     if not requesting_user_doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Requesting user not found in database.")
     requesting_user_internal_id = User(**requesting_user_doc).id
 
     # 2. Retrieve the team
-    team_doc = db.teams.find_one({"_id": team_id})
+    team_doc = await db.teams.find_one({"_id": team_id})
     if not team_doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Team with id {team_id} not found")
     team = Team(**team_doc)
 
     # 3. Retrieve the parent organization for permission checks
-    organization_doc = db.organizations.find_one({"_id": team.organization_id})
+    organization_doc = await db.organizations.find_one({"_id": team.organization_id})
     if not organization_doc:
         # This should ideally not happen if data integrity is maintained
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Parent organization for team {team_id} not found.")
@@ -276,7 +276,7 @@ async def remove_team_member(
          raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Team admins cannot remove other team admins. This requires organization level admin rights.")
 
     # 6. Perform Removal using $pull
-    update_result = db.teams.update_one(
+    update_result = await db.teams.update_one(
         {"_id": team_id},
         {
             "$pull": {"members": {"user_id": user_id_to_remove}},
@@ -287,7 +287,7 @@ async def remove_team_member(
     if update_result.modified_count == 0:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to remove member. Member might not have been found or no change made.")
 
-    updated_team_doc = db.teams.find_one({"_id": team_id})
+    updated_team_doc = await db.teams.find_one({"_id": team_id})
     if not updated_team_doc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve team after removing member.")
         
@@ -311,19 +311,19 @@ async def update_team_member_role(
     # 1. Get requesting user's internal ID
     if not payload.sub:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Auth0 user ID (sub) is required from token.")
-    requesting_user_doc = db.users.find_one({"auth0_id": payload.sub})
+    requesting_user_doc = await db.users.find_one({"auth0_id": payload.sub})
     if not requesting_user_doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Requesting user not found in database.")
     requesting_user_internal_id = User(**requesting_user_doc).id
 
     # 2. Retrieve the team
-    team_doc = db.teams.find_one({"_id": team_id})
+    team_doc = await db.teams.find_one({"_id": team_id})
     if not team_doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Team with id {team_id} not found")
     team = Team(**team_doc)
 
     # 3. Retrieve the parent organization for permission checks
-    organization_doc = db.organizations.find_one({"_id": team.organization_id})
+    organization_doc = await db.organizations.find_one({"_id": team.organization_id})
     if not organization_doc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Parent organization for team {team_id} not found.")
     organization = Organization(**organization_doc)
@@ -364,7 +364,7 @@ async def update_team_member_role(
 
     # 6. Perform Update
     update_field_path = f"members.{member_to_update_index}.role"
-    update_result = db.teams.update_one(
+    update_result = await db.teams.update_one(
         {"_id": team_id, "members.user_id": user_id_to_update},
         {
             "$set": {update_field_path: role_data.role.value, "updated_at": datetime.utcnow()}
@@ -374,7 +374,7 @@ async def update_team_member_role(
     if update_result.matched_count == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member to update not found, or update failed.")
 
-    updated_team_doc = db.teams.find_one({"_id": team_id})
+    updated_team_doc = await db.teams.find_one({"_id": team_id})
     if not updated_team_doc:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve team after updating member role.")
         

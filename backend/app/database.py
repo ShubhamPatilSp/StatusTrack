@@ -8,16 +8,18 @@ class MongoDB:
 
 mongodb = MongoDB()
 
-def connect_to_mongo():
+async def connect_to_mongo():
     mongodb.client = AsyncIOMotorClient(settings.MONGODB_URL)
     mongodb.db = mongodb.client[settings.MONGODB_DB_NAME]
     print(f"Successfully connected to MongoDB: {settings.MONGODB_DB_NAME}")
-    # You can add a ping command here to verify connection if needed
-    # try:
-    #     mongodb.client.admin.command('ping')
-    #     print("Pinged your deployment. You successfully connected to MongoDB!")
-    # except Exception as e:
-    #     print(e)
+    
+    # Test the connection
+    try:
+        await mongodb.client.admin.command('ping')
+        print("Pinged your deployment. You successfully connected to MongoDB!")
+    except Exception as e:
+        print(f"Error testing MongoDB connection: {e}")
+        raise
 
 def close_mongo_connection():
     if mongodb.client:

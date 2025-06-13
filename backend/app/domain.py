@@ -2,7 +2,7 @@ from typing import List, Optional, Union, Any, ForwardRef
 from enum import Enum
 from datetime import datetime, timezone
 from bson import ObjectId
-from pydantic import BaseModel, Field, EmailStr, HttpUrl, GetCoreSchemaHandler # Import GetCoreSchemaHandler from pydantic
+from pydantic import BaseModel, Field, EmailStr, HttpUrl, GetCoreSchemaHandler, ConfigDict # Import GetCoreSchemaHandler from pydantic
 from pydantic.json_schema import JsonSchemaValue, GetJsonSchemaHandler as GetJsonSchemaHandlerForJson # Alias to avoid name clash if needed, or remove if GetJsonSchemaHandler from pydantic.json_schema is not used elsewhere
 from pydantic_core import core_schema
 
@@ -81,6 +81,11 @@ class IncidentStatusEnum(str, Enum):
     RESOLVED = "Resolved"
     SCHEDULED = "Scheduled" # For scheduled maintenance
 
+class IncidentSeverityEnum(str, Enum):
+    CRITICAL = "Critical"
+    MAJOR = "Major"
+    MINOR = "Minor"
+
 class UserRoleEnum(str, Enum):
     ADMIN = "admin"
     MEMBER = "member"
@@ -96,27 +101,36 @@ class MongoBaseModel(BaseModel):
     }
 
 # User Models
-class User(MongoBaseModel):
-    auth0_id: str = Field(..., unique=True)
-    email: EmailStr = Field(..., unique=True)
+class User(BaseModel):
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    auth0_id: str
+    email: EmailStr
     name: Optional[str] = None
-    picture: Optional[HttpUrl] = None
+    picture: Optional[str] = None
+    organization_ids: List[PyObjectId] = []
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
+class Subscriber(BaseModel):
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    email: EmailStr
+    organization_id: PyObjectId
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
 class OrganizationMember(BaseModel):
-    user_id: PyObjectId # This is the _id of a User document in the DB
+    user_id: PyObjectId
     role: UserRoleEnum = UserRoleEnum.MEMBER
 
 class Organization(MongoBaseModel):
     name: str = Field(..., min_length=1, max_length=100)
+    slug: str = Field(..., unique=True, index=True)
     owner_id: PyObjectId
     members: List[OrganizationMember] = []
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 class TeamMember(BaseModel):
-    user_id: PyObjectId # This is the _id of a User document in the DB
+    user_id: PyObjectId
     role: UserRoleEnum = UserRoleEnum.MEMBER
 
 class Team(MongoBaseModel):
@@ -127,17 +141,46 @@ class Team(MongoBaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
+class ServiceStatusHistory(BaseModel):
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    old_status: Optional[ServiceStatusEnum] = None
+    new_status: ServiceStatusEnum
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
 # Service Management Models
 class Service(MongoBaseModel):
+    # Using model_config directly in Pydantic v2
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={
+            ObjectId: str
+        },
+    )
+
+    id: PyObjectId = Field(alias="_id")
     name: str = Field(..., min_length=1, max_length=100)
-    organization_id: PyObjectId # Now required
+    organization_id: PyObjectId
     description: Optional[str] = None
     status: ServiceStatusEnum = ServiceStatusEnum.OPERATIONAL
+    status_history: List[ServiceStatusHistory] = []
     tags: List[str] = []
-    created_at: Optional[datetime] = None # Made optional to load demo data
-    updated_at: Optional[datetime] = None # Made optional to load demo data
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 # Incident/Maintenance Management Models
+
+
+class Subscriber(BaseModel):
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    email: EmailStr
+    organization_id: PyObjectId
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class Config:
+        populate_by_name = True
+        json_encoders = {ObjectId: str}
+
 class IncidentUpdate(BaseModel): 
     message: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)
@@ -147,6 +190,7 @@ class Incident(MongoBaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     organization_id: PyObjectId
     status: IncidentStatusEnum = IncidentStatusEnum.INVESTIGATING
+    severity: IncidentSeverityEnum = IncidentSeverityEnum.MINOR
     affected_services: List[PyObjectId]
     updates: List[IncidentUpdate] = []
     is_maintenance: bool = False
@@ -176,6 +220,17 @@ class OrganizationMemberAdd(BaseModel):
 
 class OrganizationMemberRoleUpdate(BaseModel):
     role: UserRoleEnum
+
+# Models for populated responses
+class PopulatedMember(BaseModel):
+    id: str
+    name: str
+    email: str
+    picture: Optional[str] = None
+    role: UserRoleEnum
+
+class OrganizationWithPopulatedMembers(Organization):
+    members: List[PopulatedMember] = []
 
 class TeamMemberAdd(BaseModel):
     user_id: PyObjectId # The internal _id of the User to add
@@ -210,14 +265,40 @@ class IncidentCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     organization_id: PyObjectId
     status: IncidentStatusEnum = IncidentStatusEnum.INVESTIGATING
+    severity: IncidentSeverityEnum = IncidentSeverityEnum.MINOR
     affected_services: List[PyObjectId]
     initial_update_message: Optional[str] = None
     is_maintenance: bool = False
     scheduled_start_time: Optional[datetime] = None
     scheduled_end_time: Optional[datetime] = None
 
+class IncidentUpdateAction(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    status: Optional[IncidentStatusEnum] = None
+    severity: Optional[IncidentSeverityEnum] = None
+    affected_services: Optional[List[PyObjectId]] = None
+    message: Optional[str] = Field(None, min_length=1) # A new update message to append to the list
+
 class IncidentUpdatePayload(BaseModel):
     message: str
 
 class IncidentStatusUpdate(BaseModel):
     status: IncidentStatusEnum
+
+class SubscriberCreate(BaseModel):
+    email: EmailStr
+    organization_id: PyObjectId
+
+# Metric Models
+class Metric(MongoBaseModel):
+    service_id: PyObjectId
+    value: float
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+class MetricCreate(BaseModel):
+    service_id: PyObjectId
+    value: float
+
+class MetricDataPoint(BaseModel):
+    timestamp: datetime
+    value: float

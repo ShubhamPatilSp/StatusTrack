@@ -5,11 +5,12 @@ import httpx
 from jose import jwt, JWTError
 from pydantic import BaseModel, Field
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
+from passlib.context import CryptContext
 
 from app.config import settings
 from app.database import get_database, AsyncIOMotorDatabase
-from app.models import User, UserCreate
+from app.domain import User, UserCreate
 
 # --- Auth0 Configuration ---
 AUTH0_DOMAIN = settings.AUTH0_DOMAIN
@@ -221,4 +222,37 @@ async def preload_jwks_on_startup():
         print("JWKS preloaded successfully.")
     else:
         print("Failed to preload JWKS.")
+
+
+# --- Local Password & JWT Authentication ---
+
+# This section adds support for traditional email/password login, which is separate
+# from the Auth0 integration above. It allows the API to issue its own JWTs.
+
+# Password hashing context
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# JWT settings (ensure these are in your config.py)
+SECRET_KEY = getattr(settings, 'JWT_SECRET_KEY', 'a_very_secret_key_that_should_be_in_config')
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = getattr(settings, 'ACCESS_TOKEN_EXPIRE_MINUTES', 30)
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verifies a plain password against a hashed one."""
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password: str) -> str:
+    """Hashes a plain password."""
+    return pwd_context.hash(password)
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """Creates a new JWT access token."""
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
