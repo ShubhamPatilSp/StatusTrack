@@ -45,6 +45,16 @@ export interface Organization {
 }
 
 /**
+ * Represents the data payload for creating or updating a service.
+ */
+export interface ServiceFormData {
+  name: string;
+  description: string;
+  status: ServiceStatus;
+  organization_id?: string;
+}
+
+/**
  * Defines the status of an incident.
  */
 export enum IncidentStatusEnum {

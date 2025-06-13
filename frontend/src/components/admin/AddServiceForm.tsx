@@ -6,11 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Keep only one import for Select
 import { Textarea } from "@/components/ui/textarea";
-import { Service, ServiceStatus, FrontendOrganization } from "@/types"; // Added FrontendOrganization
+import { Service, ServiceStatus, Organization, ServiceFormData } from "@/types";
 
 interface AddServiceFormProps {
-  organizations: FrontendOrganization[]; 
-  onSubmit: (serviceData: Omit<Service, 'id' | 'createdAt' | 'updatedAt'> & { organization_id?: string }) => void; 
+  organizations: Organization[]; 
+  onSubmit: (serviceData: ServiceFormData) => void; 
   onCloseDialog: () => void;
   existingService?: Service | null; 
 }
@@ -38,7 +38,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ onSubmit, onCloseDialog
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const serviceData: Omit<Service, 'id' | 'createdAt' | 'updatedAt'> & { organization_id?: string } = { name, description, status };
+    const serviceData: ServiceFormData = { name, description, status };
     if (!existingService) { 
       if (!organizationId) {
         alert("Please select an organization."); 

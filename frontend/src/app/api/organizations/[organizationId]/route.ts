@@ -1,5 +1,5 @@
 import { withApiAuthRequired, getAccessToken } from '@auth0/nextjs-auth0';
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -30,10 +30,15 @@ function recursiveIdMapper(obj: any): any {
 }
 
 
-const handleGet = async (req: Request, { params }: { params: { organizationId: string } }) => {
+export const GET = withApiAuthRequired(async function GET(req: NextRequest, ctx: { params?: { organizationId?: string } }) {
     try {
+        const organizationId = ctx.params?.organizationId;
+        if (!organizationId) {
+            return NextResponse.json({ error: 'Organization ID is required' }, { status: 400 });
+        }
+
         const { accessToken } = await getAccessToken();
-        const backendUrl = `${API_URL}/api/v1/organizations/${params.organizationId}`;
+        const backendUrl = `${API_URL}/api/v1/organizations/${organizationId}`;
 
         const backendResponse = await fetch(backendUrl, {
             headers: {
@@ -54,13 +59,18 @@ const handleGet = async (req: Request, { params }: { params: { organizationId: s
         console.error('Error in organization proxy route (GET):', error);
         return NextResponse.json({ error: error.message || 'An unexpected error occurred' }, { status: 500 });
     }
-};
+});
 
 
-const handlePut = async (req: Request, { params }: { params: { organizationId: string } }) => {
+export const PUT = withApiAuthRequired(async function PUT(req: NextRequest, ctx: { params?: { organizationId?: string } }) {
     try {
+        const organizationId = ctx.params?.organizationId;
+        if (!organizationId) {
+            return NextResponse.json({ error: 'Organization ID is required' }, { status: 400 });
+        }
+
         const { accessToken } = await getAccessToken();
-        const backendUrl = `${API_URL}/api/v1/organizations/${params.organizationId}`;
+        const backendUrl = `${API_URL}/api/v1/organizations/${organizationId}`;
 
         const body = await req.json();
 
@@ -86,7 +96,4 @@ const handlePut = async (req: Request, { params }: { params: { organizationId: s
         console.error('Error in organization proxy route (PUT):', error);
         return NextResponse.json({ error: error.message || 'An unexpected error occurred' }, { status: 500 });
     }
-};
-
-export const GET = withApiAuthRequired(handleGet);
-export const PUT = withApiAuthRequired(handlePut);
+});

@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@auth0/nextjs-auth0';
+
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { slug: string } }
 ) {
-  const { user } = await auth();
-  if (!user) {
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    );
-  }
+
 
   try {
     const body = await request.json();
@@ -19,7 +13,6 @@ export async function POST(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${user.access_token}`,
       },
       body: JSON.stringify(body),
     });
