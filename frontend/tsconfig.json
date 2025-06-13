@@ -20,6 +20,7 @@
     "types": [
       "node"
     ],
+    "baseUrl": ".",
     "plugins": [
       {
         "name": "next"
