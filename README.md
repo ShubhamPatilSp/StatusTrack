@@ -10,6 +10,7 @@
 
   <p align="center">
     A full-featured, real-time status page application built with FastAPI and Next.js.
+    <!-- Trigger Vercel deploy -->
     <br />
     <a href="#"><strong>Explore the docs »</strong></a>
     <br />
