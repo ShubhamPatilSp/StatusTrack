@@ -7,8 +7,8 @@ from app.database import connect_to_mongo, close_mongo_connection, get_database
 from app.api.v1.api import api_router
 from app.socketio_manager import manager
 
-# Create FastAPI app first
-app = FastAPI(
+# Create FastAPI app instance
+fastapi_app = FastAPI(
     title="StatusTrack API",
     description="API for StatusTrack, a modern status page system.",
     version="1.0.0"
@@ -18,18 +18,19 @@ app = FastAPI(
 sio = AsyncServer(async_mode='asgi', cors_allowed_origins=[])  # Allow all origins for development
 
 # Wrap the FastAPI app with Socket.IO middleware
-socket_app = ASGIApp(sio, app)
+# This 'app' is what Vercel will serve
+app = ASGIApp(sio, fastapi_app)
 
 # CORS Middleware
-app.add_middleware(
+fastapi_app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Allows your Next.js frontend
+    allow_origins=["http://localhost:3000", "https://status-track-alpha.vercel.app"],  # Add deployed frontend URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-@app.on_event("startup")
+@fastapi_app.on_event("startup")
 async def startup_event():
     print("Starting up and connecting to MongoDB...")
     await connect_to_mongo()
@@ -75,14 +76,14 @@ async def startup_event():
     manager.emit_service_updated = emit_service_updated
     manager.emit_incident_updated = emit_incident_updated
 
-@app.on_event("shutdown")
+@fastapi_app.on_event("shutdown")
 async def shutdown_event():
     print("Shutting down and closing MongoDB connection...")
     await close_mongo_connection()
 
 # Include the API router
-app.include_router(api_router, prefix="/api/v1")
+fastapi_app.include_router(api_router, prefix="/api/v1")
 
-@app.get("/", tags=["Root"], summary="Root endpoint to check API status")
+@fastapi_app.get("/", tags=["Root"], summary="Root endpoint to check API status")
 async def read_root():
     return {"message": "Welcome to the StatusTrack API!"}
