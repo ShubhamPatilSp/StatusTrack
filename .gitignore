@@ -118,7 +118,7 @@ ENV/
 node_modules/
 .next/
 out/
-public/
+
 
 # MongoDB
 *.db
