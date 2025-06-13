@@ -14,10 +14,6 @@
     {
       "src": "/api/v1/(.*)",
       "dest": "backend/app/main.py"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "frontend/$1"
     }
   ],
   "env": {
