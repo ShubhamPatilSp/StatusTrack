@@ -157,6 +157,5 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ## Contact
 
-Project Maintainer - [@your_github_handle](https://github.com/your_github_handle) - your_email@example.com
 
 Project Link: [https://github.com/ShubhamPatilSp/StatusTrack](https://github.com/ShubhamPatilSp/StatusTrack)
