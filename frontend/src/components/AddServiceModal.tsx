@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FC } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 interface AddServiceModalProps {
   isOpen: boolean;
