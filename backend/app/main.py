@@ -82,7 +82,7 @@ async def shutdown_event():
     await close_mongo_connection()
 
 # Include the API router
-fastapi_app.include_router(api_router, prefix="/api/v1")
+fastapi_app.include_router(api_router)
 
 @fastapi_app.get("/", tags=["Root"], summary="Root endpoint to check API status")
 async def read_root():
