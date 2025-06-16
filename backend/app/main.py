@@ -57,12 +57,12 @@ fastapi_app = FastAPI(
 sio = AsyncServer(async_mode='asgi', cors_allowed_origins="*")
 
 # Wrap the FastAPI app with Socket.IO middleware
-socket_app = ASGIApp(sio, fastapi_app)
+app = ASGIApp(sio, fastapi_app)
 
 # CORS Middleware
 fastapi_app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://status-track-alpha.vercel.app"],
+    allow_origins=["http://localhost:3000", "https://status-track.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
