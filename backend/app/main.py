@@ -16,13 +16,17 @@ async def lifespan(app: FastAPI):
     await connect_to_mongo()
     try:
         db = get_database()
-        if db:
-            await db.subscribers.create_index(
-                [("email", 1), ("organization_id", 1)],
-                name="email_org_unique_idx",
-                unique=True
-            )
-            print("Successfully created/ensured unique index on subscribers collection.")
+        if db is not None:
+            subscribers_collection = db.get_collection("subscribers")
+            if subscribers_collection is not None:
+                await subscribers_collection.create_index(
+                    [("email", 1), ("organization_id", 1)],
+                    name="email_org_unique_idx",
+                    unique=True
+                )
+                print("Successfully created/ensured unique index on subscribers collection.")
+            else:
+                print("Subscribers collection not found in database.")
         else:
             print("Database connection not available for index creation.")
     except Exception as e:
@@ -36,7 +40,10 @@ async def lifespan(app: FastAPI):
 
     # Shutdown logic
     print("Shutting down and closing MongoDB connection...")
-    await close_mongo_connection()
+    try:
+        await close_mongo_connection()
+    except Exception as e:
+        print(f"Error during MongoDB shutdown: {e}")
 
 # Create FastAPI app instance with the lifespan manager
 fastapi_app = FastAPI(
