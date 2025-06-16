@@ -1,4 +1,10 @@
 {
+  "builds": [
+    { "src": "next.config.js", "use": "@vercel/next" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "/$1" }
+  ],
   "env": {
     "NEXT_PUBLIC_AUTH0_ISSUER_BASE_URL": "${NEXT_PUBLIC_AUTH0_ISSUER_BASE_URL}",
     "NEXT_PUBLIC_AUTH0_BASE_URL": "${NEXT_PUBLIC_AUTH0_BASE_URL}",
