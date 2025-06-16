@@ -1,14 +1,15 @@
 import re
 import random
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Response
 from typing import List, Optional
 from pymongo.database import Database
+from pymongo import ReturnDocument
 from bson import ObjectId
 from datetime import datetime
 
 from app.domain import Organization, OrganizationCreate, OrganizationUpdate, PyObjectId, OrganizationMember, UserRoleEnum, User, OrganizationMemberAdd, OrganizationMemberRoleUpdate, OrganizationWithPopulatedMembers, PopulatedMember, Service, Incident, IncidentStatusEnum
 from app.database import get_database
-from app.auth_utils import get_current_user_token_payload, TokenPayload
+from app.auth_utils import get_current_active_db_user, get_current_user_token_payload, TokenPayload
 
 router = APIRouter()
 
@@ -20,73 +21,10 @@ router = APIRouter()
 async def create_organization(
     org_in: OrganizationCreate,
     db: Database = Depends(get_database),
-    payload: TokenPayload = Depends(get_current_user_token_payload)
+    current_user: User = Depends(get_current_active_db_user)
 ):
-    """
-    Create a new organization.
-    The user creating the organization will be set as its owner.
-    """
-    # Generate a unique slug
-    base_slug = re.sub(r'[^a-z0-9]+', '-', org_in.name.lower()).strip('-')
-    slug = base_slug
-    counter = 1
-    while await db.organizations.find_one({"slug": slug}):
-        slug = f"{base_slug}-{counter}"
-        counter += 1
-
-    org_dict = org_in.model_dump()
-    org_dict["slug"] = slug
-    org_dict["created_at"] = datetime.utcnow()
-    org_dict["updated_at"] = datetime.utcnow()
-
-    # Find or create the user based on Auth0 token
-    if not payload.sub or not payload.email:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Auth0 user ID (sub) and email are required from token.")
-
-    user_doc = await db.users.find_one({"auth0_id": payload.sub})
-    current_user_id: PyObjectId
-
-    if user_doc:
-        current_user_id = User(**user_doc).id
-        # Optionally update user's name/picture if they've changed in Auth0
-        update_data = {}
-        if payload.name and user_doc.get("name") != payload.name:
-            update_data["name"] = payload.name
-        if payload.picture and user_doc.get("picture") != payload.picture:
-            update_data["picture"] = payload.picture
-        if payload.email and user_doc.get("email") != payload.email: # Email might change in some scenarios
-            update_data["email"] = payload.email # Ensure email uniqueness is handled by DB index
-        if update_data:
-            update_data["updated_at"] = datetime.utcnow()
-            await db.users.update_one({"_id": current_user_id}, {"$set": update_data})
-    else:
-        new_user_data = {
-            "auth0_id": payload.sub,
-            "email": payload.email,
-            "name": payload.name,
-            "picture": payload.picture,
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow()
-        }
-        try:
-            user_to_create = User(**new_user_data)
-        except Exception as e:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid user data from token: {e}")
-        
-        insert_result = await db.users.insert_one(user_to_create.model_dump(by_alias=True, exclude_none=True))
-        current_user_id = insert_result.inserted_id
-
-    org_dict["owner_id"] = current_user_id
-    owner_member = OrganizationMember(user_id=current_user_id, role=UserRoleEnum.ADMIN)
-    org_dict["members"] = [owner_member.model_dump(exclude_none=True)]
-
-    new_org_insert_result = await db.organizations.insert_one(org_dict)
-    created_org_doc = await db.organizations.find_one({"_id": new_org_insert_result.inserted_id})
-
-    if created_org_doc:
-        return Organization(**created_org_doc)
-    else:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not create organization.")
+    # Functionality disabled by user request.
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Creating organizations is disabled.")
 
 @router.get("/", response_model=List[Organization])
 async def list_organizations(
@@ -194,7 +132,7 @@ async def get_public_organization_status(organization_slug: str, db: Database = 
     incidents = [Incident(**i) async for i in incidents_cursor]
 
     return {
-        "organization": {"name": organization.name, "logo_url": organization.logo_url},
+        "organization": organization,
         "services": services,
         "incidents": incidents
     }
@@ -206,38 +144,17 @@ async def update_organization(
     db: Database = Depends(get_database),
     payload: TokenPayload = Depends(get_current_user_token_payload)
 ):
-    """
-    Update an existing organization's details.
-    """
-    update_data = org_in.model_dump(exclude_unset=True)
-    if not update_data:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No update data provided.")
-
-    update_data['updated_at'] = datetime.utcnow()
-
-    update_result = await db.organizations.update_one(
-        {"_id": org_id}, {"$set": update_data}
-    )
-
-    if update_result.matched_count == 0:
-        raise HTTPException(status_code=404, detail=f"Organization {org_id} not found")
-
-    updated_org = await db.organizations.find_one({"_id": org_id})
-    if not updated_org:
-        raise HTTPException(status_code=404, detail=f"Organization {org_id} not found after update.")
-
-    return Organization(**updated_org)
+    # Functionality disabled by user request.
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Updating organizations is disabled.")
 
 @router.delete("/{org_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_organization(org_id: PyObjectId, db: Database = Depends(get_database), payload: TokenPayload = Depends(get_current_user_token_payload)):
-    """
-    Delete an organization by its ID.
-    """
-    delete_result = await db.organizations.delete_one({"_id": org_id})
-
-    if delete_result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail=f"Organization {org_id} not found")
-
+async def delete_organization(
+    org_id: PyObjectId,
+    db: Database = Depends(get_database),
+    current_user: User = Depends(get_current_active_db_user)
+):
+    # Functionality disabled by user request.
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Deleting organizations is disabled.")
 
 @router.post("/{org_id}/members", response_model=Organization, status_code=status.HTTP_201_CREATED)
 async def add_organization_member(
