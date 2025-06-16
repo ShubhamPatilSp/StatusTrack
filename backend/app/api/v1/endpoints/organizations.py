@@ -2,6 +2,8 @@ import re
 import random
 from fastapi import APIRouter, HTTPException, Depends, status, Response
 from typing import List, Optional
+from datetime import datetime
+from slugify import slugify
 from pymongo.database import Database
 from pymongo import ReturnDocument
 from bson import ObjectId
@@ -19,12 +21,49 @@ router = APIRouter()
 
 @router.post("/", response_model=Organization, status_code=status.HTTP_201_CREATED)
 async def create_organization(
-    org_in: OrganizationCreate,
+    organization_in: OrganizationCreate,
     db: Database = Depends(get_database),
     current_user: User = Depends(get_current_active_db_user)
 ):
-    # Functionality disabled by user request.
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Creating organizations is disabled.")
+    """
+    Create a new organization.
+    The user creating the organization will be automatically assigned as its owner.
+    """
+    slug = slugify(organization_in.name)
+    
+    # Check if an organization with the same slug already exists
+    if await db.organizations.find_one({"slug": slug}):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"An organization with the name '{organization_in.name}' already exists."
+        )
+
+    # Create the organization document
+    new_organization_data = organization_in.model_dump()
+    new_organization_data['slug'] = slug
+    new_organization_data['created_by'] = current_user.id
+    now = datetime.utcnow()
+    new_organization_data['created_at'] = now
+    new_organization_data['updated_at'] = now
+
+    # Insert the new organization into the database
+    result = await db.organizations.insert_one(new_organization_data)
+    
+    # Add the creator as the first member with the 'owner' role
+    await db.organization_members.insert_one({
+        "organization_id": result.inserted_id,
+        "user_id": current_user.id,
+        "role": "owner",
+        "added_at": now
+    })
+
+    # Retrieve the newly created organization to return it
+    created_organization = await db.organizations.find_one({"_id": result.inserted_id})
+    
+    if not created_organization:
+        raise HTTPException(status_code=500, detail="Failed to create organization.")
+
+    return Organization.model_validate(created_organization)
 
 @router.get("/", response_model=List[Organization])
 async def list_organizations(

@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from socketio import AsyncServer, ASGIApp
 from typing import Optional
@@ -7,47 +8,60 @@ from app.database import connect_to_mongo, close_mongo_connection, get_database
 from app.api.v1.api import api_router
 from app.socketio_manager import manager
 
-# Create FastAPI app instance
+# Lifespan context manager
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup logic
+    print("Starting up and connecting to MongoDB...")
+    await connect_to_mongo()
+    try:
+        db = get_database()
+        if db:
+            await db.subscribers.create_index(
+                [("email", 1), ("organization_id", 1)],
+                name="email_org_unique_idx",
+                unique=True
+            )
+            print("Successfully created/ensured unique index on subscribers collection.")
+        else:
+            print("Database connection not available for index creation.")
+    except Exception as e:
+        print(f"An error occurred while creating unique index for subscribers: {e}")
+    
+    # Initialize Socket.IO and its event handlers
+    manager.sio = sio
+    register_socketio_handlers(sio)
+
+    yield
+
+    # Shutdown logic
+    print("Shutting down and closing MongoDB connection...")
+    await close_mongo_connection()
+
+# Create FastAPI app instance with the lifespan manager
 fastapi_app = FastAPI(
     title="StatusTrack API",
     description="API for StatusTrack, a modern status page system.",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # Create Socket.IO server
-sio = AsyncServer(async_mode='asgi', cors_allowed_origins=[])  # Allow all origins for development
+sio = AsyncServer(async_mode='asgi', cors_allowed_origins="*")
 
 # Wrap the FastAPI app with Socket.IO middleware
-# This 'app' is what Vercel will serve
 app = ASGIApp(sio, fastapi_app)
 
 # CORS Middleware
 fastapi_app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "https://status-track-alpha.vercel.app"],  # Add deployed frontend URL
+    allow_origins=["http://localhost:3000", "https://status-track-alpha.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-@fastapi_app.on_event("startup")
-async def startup_event():
-    print("Starting up and connecting to MongoDB...")
-    await connect_to_mongo()
-
-    # Create unique index for subscribers to prevent duplicates
-    try:
-        db = get_database()
-        await db.subscribers.create_index(
-            [("email", 1), ("organization_id", 1)],
-            name="email_org_unique_idx",
-            unique=True
-        )
-        print("Successfully created/ensured unique index on subscribers collection.")
-    except Exception as e:
-        print(f"An error occurred while creating unique index for subscribers: {e}")
-
-    # Initialize Socket.IO connection handling
+def register_socketio_handlers(sio: AsyncServer):
     @sio.event
     async def connect(sid, environ, auth):
         print(f"Client connected: {sid}")
@@ -62,24 +76,6 @@ async def startup_event():
         if room:
             sio.enter_room(sid, room)
             print(f"Client {sid} joined room: {room}")
-
-    # Add Socket.IO methods to manager
-    manager.sio = sio
-
-    async def emit_service_updated(data: dict, organization_id: str):
-        await sio.emit('service_updated', data, room=organization_id)
-
-    async def emit_incident_updated(data: dict, organization_id: str):
-        await sio.emit('incident_updated', data, room=organization_id)
-
-    # Add these methods to manager
-    manager.emit_service_updated = emit_service_updated
-    manager.emit_incident_updated = emit_incident_updated
-
-@fastapi_app.on_event("shutdown")
-async def shutdown_event():
-    print("Shutting down and closing MongoDB connection...")
-    await close_mongo_connection()
 
 # Include the API router
 fastapi_app.include_router(api_router, prefix="/api/v1")

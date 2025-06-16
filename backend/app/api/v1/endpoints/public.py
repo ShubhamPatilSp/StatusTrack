@@ -18,6 +18,11 @@ class PublicStatusPayload(BaseModel):
     services: List[Service]
     incidents: List[Incident]
 
+class PublicStatusData(BaseModel):
+    organization: Organization
+    services: List[Service]
+    incidents: List[Incident]
+
 class SubscriptionRequest(BaseModel):
     email: EmailStr
 
@@ -47,21 +52,19 @@ async def get_public_status_page(
 ):
     """
     Provides the data for a public-facing status page.
-    
-    - **organization_id**: The ID of the organization to fetch status for.
     """
     # Fetch the organization document by slug
     org_doc = await db.organizations.find_one({"slug": slug})
     if not org_doc:
         raise HTTPException(status_code=404, detail="Organization not found")
-    organization = Organization(**org_doc)
+    organization = Organization.model_validate(org_doc)
 
     # Create a query for the given organization ID
     org_id_query = {"organization_id": organization.id}
 
     # Fetch all services for the organization
     services_cursor = db.services.find(org_id_query)
-    services = [Service(**doc) async for doc in services_cursor]
+    services = [Service.model_validate(doc) async for doc in services_cursor]
 
     # Fetch all non-resolved incidents for the organization, sorted by creation date
     active_incidents_query = {
@@ -69,7 +72,7 @@ async def get_public_status_page(
         "status": {"$ne": "Resolved"}
     }
     incidents_cursor = db.incidents.find(active_incidents_query).sort("created_at", -1)
-    incidents = [Incident(**doc) async for doc in incidents_cursor]
+    incidents = [Incident.model_validate(doc) async for doc in incidents_cursor]
 
     return PublicStatusPayload(organization=organization, services=services, incidents=incidents)
 

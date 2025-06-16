@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertCircle, Loader2, Building } from "lucide-react";
+import { AlertCircle, Loader2, Building, PlusCircle } from "lucide-react";
 import { Organization } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -34,6 +45,13 @@ export default function OrganizationsPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // State for the create organization modal
+  const [isCreateModalOpen, setCreateModalOpen] = useState(false);
+  const [newOrgName, setNewOrgName] = useState("");
+  const [newOrgDescription, setNewOrgDescription] = useState("");
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   const fetchOrganizations = async () => {
     try {
@@ -72,6 +90,46 @@ export default function OrganizationsPage() {
     fetchOrganizations();
   }, []);
 
+  const handleCreateOrganization = async () => {
+    if (!newOrgName) {
+      setCreateError("Organization name is required.");
+      return;
+    }
+    setIsCreating(true);
+    setCreateError(null);
+
+    try {
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error("Authentication failed.");
+      }
+
+      const response = await fetch(`${API_URL}/api/v1/organizations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: newOrgName, description: newOrgDescription }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to create organization.');
+      }
+
+      // Success
+      setCreateModalOpen(false);
+      setNewOrgName("");
+      setNewOrgDescription("");
+      await fetchOrganizations(); // Refresh the list
+    } catch (error: any) {
+      setCreateError(error.message);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   // --- RENDER LOGIC ---
   const renderMainContent = () => {
     if (loading) {
@@ -104,6 +162,11 @@ export default function OrganizationsPage() {
           <Building className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-white">No organizations</h3>
           <p className="mt-1 text-sm text-gray-500">Get started by creating your first organization.</p>
+          <DialogTrigger asChild>
+            <Button className="mt-4">
+              <PlusCircle className="mr-2 h-4 w-4" /> Create Organization
+            </Button>
+          </DialogTrigger>
         </div>
       );
     }
@@ -123,7 +186,9 @@ export default function OrganizationsPage() {
               <TableRow key={org.id}>
                 <TableCell className="font-medium">{org.name}</TableCell>
                 <TableCell className="text-gray-500 dark:text-gray-400">{org.slug}</TableCell>
-
+                <TableCell className="text-right">
+                  {/* Action buttons can go here in the future */}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -133,13 +198,70 @@ export default function OrganizationsPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Organizations</h1>
+    <Dialog open={isCreateModalOpen} onOpenChange={(isOpen) => {
+      setCreateModalOpen(isOpen);
+      if (!isOpen) {
+        setCreateError(null);
+        setNewOrgName("");
+        setNewOrgDescription("");
+      }
+    }}>
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">Organizations</h1>
+          <DialogTrigger asChild>
+            <Button>
+              <PlusCircle className="mr-2 h-4 w-4" /> Create Organization
+            </Button>
+          </DialogTrigger>
+        </div>
+
+        {renderMainContent()}
+
       </div>
-
-      {renderMainContent()}
-
-    </div>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Create New Organization</DialogTitle>
+          <DialogDescription>
+            Give your new organization a name and an optional description.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="name" className="text-right">
+              Name
+            </Label>
+            <Input
+              id="name"
+              value={newOrgName}
+              onChange={(e) => setNewOrgName(e.target.value)}
+              className="col-span-3"
+              placeholder="Acme Corporation"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="description" className="text-right">
+              Description
+            </Label>
+            <Input
+              id="description"
+              value={newOrgDescription}
+              onChange={(e) => setNewOrgDescription(e.target.value)}
+              className="col-span-3"
+              placeholder="The best company in the world."
+            />
+          </div>
+          {createError && (
+            <p className="col-span-4 text-sm text-red-500 text-center">{createError}</p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button type="submit" onClick={handleCreateOrganization} disabled={isCreating}>
+            {isCreating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Create Organization
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -149,16 +149,6 @@ class ServiceStatusHistory(BaseModel):
 
 # Service Management Models
 class Service(MongoBaseModel):
-    # Using model_config directly in Pydantic v2
-    model_config = ConfigDict(
-        populate_by_name=True,
-        arbitrary_types_allowed=True,
-        json_encoders={
-            ObjectId: str
-        },
-    )
-
-    id: PyObjectId = Field(alias="_id")
     name: str = Field(..., min_length=1, max_length=100)
     organization_id: PyObjectId
     description: Optional[str] = None
@@ -169,18 +159,6 @@ class Service(MongoBaseModel):
     updated_at: Optional[datetime] = None
 
 # Incident/Maintenance Management Models
-
-
-class Subscriber(BaseModel):
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    email: EmailStr
-    organization_id: PyObjectId
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-    class Config:
-        populate_by_name = True
-        json_encoders = {ObjectId: str}
-
 class IncidentUpdate(BaseModel): 
     message: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)
