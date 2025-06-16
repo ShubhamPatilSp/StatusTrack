@@ -57,7 +57,7 @@ fastapi_app = FastAPI(
 sio = AsyncServer(async_mode='asgi', cors_allowed_origins="*")
 
 # Wrap the FastAPI app with Socket.IO middleware
-app = ASGIApp(sio, fastapi_app)
+socket_app = ASGIApp(sio, fastapi_app)
 
 # CORS Middleware
 fastapi_app.add_middleware(
