@@ -11,8 +11,9 @@ interface PublicStatusData {
 async function getPublicStatusData(organizationSlug: string): Promise<PublicStatusData | null> {
   try {
     // On the server, we need to use an absolute URL to fetch from our own API routes.
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const res = await fetch(`${appUrl}/api/public_status/${organizationSlug}`, {
+    
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    const res = await fetch(`${apiUrl}/api/v1/organizations/public/${organizationSlug}`, {
       next: { revalidate: 60 } // Revalidate every 60 seconds
     });
 

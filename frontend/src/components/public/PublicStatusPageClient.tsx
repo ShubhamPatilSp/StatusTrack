@@ -47,6 +47,33 @@ function getSeverityColor(severity: string) {
   }
 }
 
+function OverallStatus({ services }: { services: Service[] }) {
+  const isOperational = services.every(s => s.status === ServiceStatus.OPERATIONAL);
+    const hasOutage = services.some(s => 
+    s.status === ServiceStatus.MAJOR_OUTAGE || 
+    s.status === ServiceStatus.PARTIAL_OUTAGE || 
+    s.status === ServiceStatus.MINOR_OUTAGE
+  );
+
+  let statusText = 'All Systems Operational';
+  let bgColor = 'bg-green-500';
+
+  if (!isOperational) {
+    statusText = 'Some Systems Experiencing Issues';
+    bgColor = 'bg-yellow-500';
+  }
+  if (hasOutage) {
+    statusText = 'Major System Outage';
+    bgColor = 'bg-red-500';
+  }
+
+  return (
+    <div className={`p-4 rounded-lg text-white text-center font-semibold ${bgColor}`}>
+      {statusText}
+    </div>
+  );
+}
+
 export default function PublicStatusPageClient({ initialData, organizationSlug }: PublicStatusPageClientProps) {
   const [data, setData] = useState<PublicStatusData>(initialData);
   const [socket, setSocket] = useState<Socket | null>(null);
