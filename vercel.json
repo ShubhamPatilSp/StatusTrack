@@ -10,10 +10,14 @@
       "use": "@vercel/python"
     }
   ],
-  "rewrites": [
+  "routes": [
     {
-      "source": "/api/v1/(.*)",
-      "destination": "/backend/app/main.py"
+      "src": "/api/v1/(.*)",
+      "dest": "@backend/api/v1/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/frontend/$1"
     }
   ]
 }
