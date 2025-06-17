@@ -61,9 +61,11 @@ This project serves as a comprehensive demonstration of full-stack development s
 
 ## Screenshots
 
-| Public Status Page | Admin Dashboard |
+| Public Status Page | Admin - Organizations |
 | :---: | :---: |
-| *Your screenshot here* | *Your screenshot here* |
+| <img src="screenshots/status-page.png" alt="Public Status Page"> | <img src="screenshots/organizations-page.png" alt="Organizations Page"> |
+| **Admin - Services** | **Admin - Incidents** |
+| <img src="screenshots/services-page.png" alt="Services Page"> | <img src="screenshots/Incident-Management-page.png" alt="Incident Management Page"> |
 
 ## Getting Started
 
