@@ -20,10 +20,18 @@ const AddOrganizationModal: FC<AddOrganizationModalProps> = ({ isOpen, onClose, 
     setIsLoading(true);
 
     try {
-            const response = await fetch('/api/organizations', {
+            const response = await fetch('/api/v1/organizations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, description })
+        body: JSON.stringify({
+            name,
+            description,
+            slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''),
+            owner_id: "", // This will be set by the backend
+            members: [],
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
       });
 
       if (!response.ok) {

@@ -89,7 +89,7 @@ export default function AdminDashboardPage() {
     setError(null);
     try {
       const [servicesRes, incidentsRes] = await Promise.all([
-        fetch(`/api/services_proxy_route?organization_id=${selectedOrganization.id}`),
+        fetch(`/api/services?organization_id=${selectedOrganization.id}`),
         fetch(`/api/incidents_proxy_route/organization/${selectedOrganization.id}`)
       ]);
 

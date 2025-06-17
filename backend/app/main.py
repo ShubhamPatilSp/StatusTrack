@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI):
         print(f"Error during MongoDB shutdown: {e}")
 
 # Create FastAPI app instance with the lifespan manager
-fastapi_app = FastAPI(
+app = FastAPI(
     title="StatusTrack API",
     description="API for StatusTrack, a modern status page system.",
     version="1.0.0",
@@ -57,10 +57,10 @@ fastapi_app = FastAPI(
 sio = AsyncServer(async_mode='asgi', cors_allowed_origins="*")
 
 # Wrap the FastAPI app with Socket.IO middleware
-socket_app = ASGIApp(sio, fastapi_app)
+socket_app = ASGIApp(sio, app)
 
 # CORS Middleware
-fastapi_app.add_middleware(
+app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "https://status-track.vercel.app"],
     allow_credentials=True,
@@ -85,8 +85,8 @@ def register_socketio_handlers(sio: AsyncServer):
             print(f"Client {sid} joined room: {room}")
 
 # Include the API router
-fastapi_app.include_router(api_router, prefix="/api/v1")
+app.include_router(api_router, prefix="/api/v1")
 
-@fastapi_app.get("/", tags=["Root"], summary="Root endpoint to check API status")
+@app.get("/", tags=["Root"], summary="Root endpoint to check API status")
 async def read_root():
     return {"message": "Welcome to the StatusTrack API!"}

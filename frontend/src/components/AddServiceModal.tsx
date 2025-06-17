@@ -24,7 +24,7 @@ export const AddServiceModal: FC<AddServiceModalProps> = ({ isOpen, onClose, onS
     setError(null);
 
     try {
-      const response = await fetch('/api/services_proxy_route', {
+      const response = await fetch('/api/services', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

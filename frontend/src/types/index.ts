@@ -30,10 +30,10 @@ export interface Service {
   description: string;
   status: ServiceStatus;
   organization_id: string;
-  tags: string[];
   status_history: ServiceStatusHistory[];
-  created_at: string; // ISO date string
-  updated_at: string; // ISO date string
+  tags: string[];
+  created_at: string | null; // Can be null
+  updated_at: string | null; // Can be null
 }
 
 /**
@@ -43,6 +43,14 @@ export interface Organization {
   id: string; // MongoDB ObjectId as a string
   name: string;
   description: string;
+  slug: string;
+  owner_id: string;
+  members: Array<{
+    user_id: string;
+    role: string;
+  }>;
+  created_at: string | null; // Can be null
+  updated_at: string | null; // Can be null
 }
 
 /**

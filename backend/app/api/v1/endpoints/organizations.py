@@ -41,7 +41,7 @@ async def create_organization(
     # Create the organization document
     new_organization_data = organization_in.model_dump()
     new_organization_data['slug'] = slug
-    new_organization_data['created_by'] = current_user.id
+    new_organization_data['owner_id'] = current_user.id
     now = datetime.utcnow()
     new_organization_data['created_at'] = now
     new_organization_data['updated_at'] = now

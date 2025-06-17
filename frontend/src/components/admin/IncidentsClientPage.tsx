@@ -76,7 +76,7 @@ const IncidentsClientPage = () => {
       try {
         const [orgsRes, servicesRes] = await Promise.all([
                     fetch('/api/organizations'),
-          fetch('/api/services_proxy_route'),
+          fetch('/api/services'),
         ]);
 
         if (!orgsRes.ok) throw new Error('Failed to fetch organizations');

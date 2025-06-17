@@ -31,7 +31,7 @@ async function handleBackendResponse(response: Response) {
 }
 
 /**
- * GET /api/services_proxy_route
+ * GET /api/services
  * Forwards GET requests to the FastAPI backend to list services.
  * Supports query parameters like `organization_id`.
  */
@@ -61,13 +61,13 @@ export const GET = withApiAuthRequired(async function handleGet(req: NextRequest
     return NextResponse.json(servicesWithId);
 
   } catch (error: any) {
-    console.error('Error in GET /api/services_proxy_route:', error);
+    console.error('Error in GET /api/services:', error);
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: error.status || 500 });
   }
 });
 
 /**
- * POST /api/services_proxy_route
+ * POST /api/services
  * Forwards POST requests to create a new service.
  */
 export const POST = withApiAuthRequired(async function handlePost(req: NextRequest) {
@@ -86,68 +86,7 @@ export const POST = withApiAuthRequired(async function handlePost(req: NextReque
 
     return await handleBackendResponse(fastapiResponse);
   } catch (error: any) {
-    console.error('Error in POST /api/services_proxy_route:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: error.status || 500 });
-  }
-});
-
-/**
- * PATCH /api/services_proxy_route
- * Forwards PATCH requests to update an existing service.
- */
-export const PATCH = withApiAuthRequired(async function handlePatch(req: NextRequest) {
-  try {
-    const { accessToken } = await getAuthToken();
-    const id = req.nextUrl.searchParams.get('id');
-    const body = await req.json();
-
-    if (!id) {
-      return NextResponse.json({ error: 'Service ID is required' }, { status: 400 });
-    }
-
-    const backendUrl = `${FASTAPI_SERVICES_ENDPOINT_BASE}/${id}`;
-
-    const fastapiResponse = await fetch(backendUrl, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
-
-    return await handleBackendResponse(fastapiResponse);
-  } catch (error: any) {
-    console.error('Error in PATCH /api/services_proxy_route:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: error.status || 500 });
-  }
-});
-
-/**
- * DELETE /api/services_proxy_route
- * Forwards DELETE requests to delete an existing service.
- */
-export const DELETE = withApiAuthRequired(async function handleDelete(req: NextRequest) {
-  try {
-    const { accessToken } = await getAuthToken();
-    const id = req.nextUrl.searchParams.get('id');
-
-    if (!id) {
-      return NextResponse.json({ error: 'Service ID is required' }, { status: 400 });
-    }
-
-    const backendUrl = `${FASTAPI_SERVICES_ENDPOINT_BASE}/${id}`;
-
-    const fastapiResponse = await fetch(backendUrl, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
-    });
-
-    return await handleBackendResponse(fastapiResponse);
-  } catch (error: any) {
-    console.error('Error in DELETE /api/services_proxy_route:', error);
+    console.error('Error in POST /api/services:', error);
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: error.status || 500 });
   }
 });

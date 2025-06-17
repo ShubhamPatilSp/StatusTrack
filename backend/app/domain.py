@@ -87,6 +87,7 @@ class IncidentSeverityEnum(str, Enum):
     MINOR = "Minor"
 
 class UserRoleEnum(str, Enum):
+    OWNER = "owner"
     ADMIN = "admin"
     MEMBER = "member"
     VIEWER = "viewer"
