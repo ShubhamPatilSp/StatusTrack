@@ -133,34 +133,57 @@ const ErrorState: FC<{ message: string }> = ({ message }) => (
   </div>
 );
 
+type MessageType = 'success' | 'error' | 'info';
+
 const SubscriptionForm: FC<{ slug: string }> = ({ slug }) => {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState<MessageType | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setMessage('');
+    setMessageType(null);
 
     try {
-      const res = await fetch(`/api/public_status_proxy/${slug}/subscribe`, {
+      const res = await fetch(`/api/public_proxy/${slug}/subscribe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
       const data = await res.json();
       if (!res.ok) {
+        setMessageType('error');
         throw new Error(data.detail || 'Subscription failed.');
       }
-      setMessage(data.message || 'Subscription successful!');
-      setEmail('');
+
+      const responseMessage = data.message || 'Subscription successful!';
+      if (responseMessage.includes('already subscribed')) {
+        setMessageType('info');
+      } else if (responseMessage.includes('could not be sent')) {
+        setMessageType('info');
+      } else {
+        setMessageType('success');
+      }
+      setMessage(responseMessage);
+      if (!responseMessage.includes('already subscribed')) {
+        setEmail('');
+      }
     } catch (error: any) {
+      setMessageType('error');
       setMessage(error.message);
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const messageConfig = messageType ? {
+    success: { icon: CheckCircle2, color: 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200' },
+    error: { icon: ShieldX, color: 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200' },
+    info: { icon: Bell, color: 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200' },
+  }[messageType] : null;
 
   return (
     <div className="mt-12 p-6 bg-gray-100 dark:bg-gray-800/50 rounded-lg">
@@ -181,7 +204,12 @@ const SubscriptionForm: FC<{ slug: string }> = ({ slug }) => {
           {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Subscribe'}
         </Button>
       </form>
-      {message && <p className="text-sm text-gray-600 dark:text-gray-400 mt-3">{message}</p>}
+      {message && messageConfig && (
+        <div className={`mt-4 p-3 rounded-lg flex items-center text-sm ${messageConfig.color}`}>
+          <messageConfig.icon className="w-5 h-5 mr-2 flex-shrink-0" />
+          <span>{message}</span>
+        </div>
+      )}
     </div>
   );
 };
@@ -201,7 +229,7 @@ export default function StatusPage({ params }: { params: { organizationSlug: str
     async function fetchData() {
       try {
         setLoading(true);
-        const res = await fetch(`/api/public_status_proxy/${params.organizationSlug}`);
+        const res = await fetch(`/api/public_proxy/${params.organizationSlug}/status`);
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({ detail: res.statusText }));
           throw new Error(`Failed to fetch status: ${errorData.detail || res.statusText}`);

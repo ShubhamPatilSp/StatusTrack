@@ -146,7 +146,7 @@ export default function PublicStatusPageClient({ initialData, organizationSlug }
 
       {/* Email Subscription */}
       <div className="mb-8">
-        {organization.id && <EmailSubscription organizationId={organization.id} />}
+        {organization.id && <EmailSubscription organizationSlug={organizationSlug} />}
       </div>
 
       {/* Uptime Graphs */}

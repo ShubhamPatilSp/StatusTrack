@@ -1,12 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async rewrites() {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://status-track-alpha.vercel.app';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
     return [
       {
-        source: "/api/v1/(.*)",
-        destination: `${backendUrl}/api/v1/$1`
-      }
+        source: '/api/public_proxy/:path*',
+        destination: `${backendUrl}/api/v1/public/:path*`,
+      },
+      {
+        source: '/api/services_proxy_route/:path*',
+        destination: `${backendUrl}/api/v1/services/:path*`,
+      },
+
+
     ];
   },
   env: {

@@ -8,7 +8,7 @@ import traceback
 
 from app.database import get_database
 from app.domain import PyObjectId, Organization, Service, Incident, Subscriber, ServiceStatusEnum, ServiceStatusHistory
-from app.email_utils import send_email
+from app.email_utils import send_subscription_confirmation_email
 from pydantic import EmailStr
 
 router = APIRouter()
@@ -86,7 +86,7 @@ async def subscribe_to_updates(
         org_doc = await db.organizations.find_one({"slug": slug})
         if not org_doc:
             raise HTTPException(status_code=404, detail="Organization not found")
-        organization = Organization(**org_doc)
+        organization = Organization.model_validate(org_doc)
 
         # Check if already subscribed
         existing_subscriber = await db.subscribers.find_one({
@@ -100,11 +100,7 @@ async def subscribe_to_updates(
         await db.subscribers.insert_one(subscriber.model_dump(by_alias=True))
 
         try:
-            await send_email(
-                subject="Subscription Confirmation",
-                recipient_to=request.email,
-                body=f"You have successfully subscribed to updates for {organization.name}."
-            )
+            send_subscription_confirmation_email(recipient=request.email, organization_name=organization.name)
         except Exception as email_error:
             print(f"CRITICAL: Failed to send subscription confirmation email to {request.email}. Error: {email_error}")
             return {"message": "Subscription successful, but confirmation email could not be sent."}

@@ -57,7 +57,7 @@ const UptimeGraph: FC<UptimeGraphProps> = ({ slug, serviceId }) => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`/api/public_status_proxy/${slug}/services/${serviceId}/uptime`);
+        const res = await fetch(`/api/public_proxy/${slug}/services/${serviceId}/uptime`);
         if (!res.ok) {
           const errorData = await res.json();
           console.error('Full error from backend proxy:', errorData);

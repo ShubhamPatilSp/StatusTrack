@@ -16,6 +16,7 @@ import {
 import AddOrganizationModal from '@/components/admin/AddOrganizationModal';
 import { Organization } from '@/types';
 import { useState, useEffect } from 'react';
+import { AdminProvider } from '@/hooks/useAdmin';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -124,18 +125,20 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
-      <div className="flex flex-col w-full">
-        <Header user={user} onAddOrganization={() => setIsAddOrgModalOpen(true)} />
-        <main className="flex-1 p-4 sm:p-6 md:p-8 bg-gray-50 dark:bg-gray-950/50">
-          {children}
-        </main>
+    <AdminProvider>
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+        <div className="flex flex-col w-full">
+          <Header user={user} onAddOrganization={() => setIsAddOrgModalOpen(true)} />
+          <main className="flex-1 p-4 sm:p-6 md:p-8 bg-gray-50 dark:bg-gray-950/50">
+            {children}
+          </main>
+        </div>
+        <AddOrganizationModal
+          isOpen={isAddOrgModalOpen}
+          onClose={() => setIsAddOrgModalOpen(false)}
+          onAdd={handleAddOrganization}
+        />
       </div>
-      <AddOrganizationModal
-        isOpen={isAddOrgModalOpen}
-        onClose={() => setIsAddOrgModalOpen(false)}
-        onAdd={handleAddOrganization}
-      />
-    </div>
+    </AdminProvider>
   );
 }

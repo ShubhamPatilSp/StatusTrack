@@ -5,6 +5,7 @@ import type { FC } from 'react';
 import Link from 'next/link';
 import { useState, useEffect, useCallback } from 'react';
 import { Organization, Service, Incident, IncidentStatusEnum } from '@/types';
+import { useAdmin } from '@/hooks/useAdmin';
 import { AddServiceModal } from '@/components/AddServiceModal';
 import AddOrganizationModal from '@/components/admin/AddOrganizationModal';
 import { AddIncidentModal } from '@/components/admin/AddIncidentModal';
@@ -59,12 +60,19 @@ const WidgetSkeleton: FC<{className?: string}> = ({className}) => (
 
 // --- Main Dashboard Page Component ---
 export default function AdminDashboardPage() {
+  const { 
+    organizations,
+    selectedOrganization,
+    setSelectedOrganization,
+    loading: adminLoading,
+    error: adminError,
+    addOrganization
+  } = useAdmin();
+
   const [services, setServices] = useState<Service[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
   const [isAddServiceModalOpen, setAddServiceModalOpen] = useState(false);
   const [isAddOrgModalOpen, setIsAddOrgModalOpen] = useState(false);
   const [isAddIncidentModalOpen, setAddIncidentModalOpen] = useState(false);
@@ -85,8 +93,8 @@ export default function AdminDashboardPage() {
   const fetchServicesAndIncidents = useCallback(async () => {
     if (!selectedOrganization) return;
 
-    setLoading(l => l || true);
-    setError(null);
+    setDataLoading(true);
+    setDataError(null);
     try {
       const [servicesRes, incidentsRes] = await Promise.all([
         fetch(`/api/services?organization_id=${selectedOrganization.id}`),
@@ -102,33 +110,11 @@ export default function AdminDashboardPage() {
       setIncidents(incidentsData);
 
     } catch (e: any) {
-      setError(e.message);
+      setDataError(e.message);
     } finally {
-      setLoading(false);
+      setDataLoading(false);
     }
   }, [selectedOrganization]);
-
-  useEffect(() => {
-    const fetchOrganizations = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-                const response = await fetch('/api/organizations');
-        if (!response.ok) throw new Error(`Failed to fetch organizations: ${response.statusText}`);
-        const data = await response.json();
-        setOrganizations(data);
-        if (data.length > 0) {
-          setSelectedOrganization(data[0]);
-        } else {
-          setLoading(false);
-        }
-      } catch (e: any) {
-        setError(e.message);
-        setLoading(false);
-      }
-    };
-    fetchOrganizations();
-  }, []);
 
   useEffect(() => {
     if (selectedOrganization) {
@@ -137,8 +123,7 @@ export default function AdminDashboardPage() {
   }, [selectedOrganization, fetchServicesAndIncidents]);
 
   const handleAddOrganization = (newOrg: Organization) => {
-    setOrganizations(prev => [...prev, newOrg]);
-    setSelectedOrganization(newOrg);
+    addOrganization(newOrg);
   };
 
   const handleOrganizationChange = (orgId: string) => {
@@ -194,13 +179,13 @@ export default function AdminDashboardPage() {
     uptime: '99.95%',
   };
 
-  if (error && !loading) {
+  if (adminError && !adminLoading) {
     return (
       <div className="p-4 md:p-8 bg-gray-50 dark:bg-gray-900 min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center justify-center text-center">
             <AlertTriangle className="w-16 h-16 text-red-500 mb-4" />
             <h2 className="text-xl font-semibold text-red-600">Failed to Load Dashboard Data</h2>
-            <p className="text-gray-500 max-w-md mt-2">{error}</p>
+            <p className="text-gray-500 max-w-md mt-2">{adminError}</p>
             <p className="text-gray-400 text-sm mt-4">Please check your connection or try again later.</p>
         </div>
       </div>
@@ -216,10 +201,12 @@ export default function AdminDashboardPage() {
           onAdd={handleAddOrganization}
         />
 
+                {dataError && <div className="text-red-500 bg-red-100 p-4 rounded-lg mb-6">{dataError}</div>}
+
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Dashboard</h2>
           <div className="flex items-center gap-4">
-            {loading && !selectedOrganization ? (
+            {adminLoading && !selectedOrganization ? (
                 <div className="animate-pulse bg-gray-200 dark:bg-gray-700 rounded-md h-10 w-48"></div>
             ) : (
                 <Popover onOpenChange={setOpen} open={open}>
@@ -277,7 +264,7 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {loading ? (
+          {adminLoading || dataLoading ? (
               <><StatCardSkeleton /><StatCardSkeleton /><StatCardSkeleton /></>
           ) : (
               <>
@@ -289,7 +276,7 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {loading ? (
+            {adminLoading || dataLoading ? (
                 <>
                     <WidgetSkeleton className="lg:col-span-1" />
                     <WidgetSkeleton className="lg:col-span-2" />

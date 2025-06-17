@@ -11,7 +11,7 @@ const subscriptionSchema = z.object({
 
 type SubscriptionFormValues = z.infer<typeof subscriptionSchema>;
 
-export const EmailSubscription = ({ organizationId }: { organizationId: string }) => {
+export const EmailSubscription = ({ organizationSlug }: { organizationSlug: string }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -25,12 +25,12 @@ export const EmailSubscription = ({ organizationId }: { organizationId: string }
     setError(null);
 
     try {
-      const response = await fetch('/api/subscribers_proxy_route', {
+      const response = await fetch(`/api/public_proxy/${organizationSlug}/subscribe`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ ...data, organization_id: organizationId }),
+        body: JSON.stringify(data),
       });
 
       if (!response.ok) {
