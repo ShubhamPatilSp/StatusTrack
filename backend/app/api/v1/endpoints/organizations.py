@@ -46,17 +46,17 @@ async def create_organization(
     new_organization_data['created_at'] = now
     new_organization_data['updated_at'] = now
 
+    # Add the creator as the first member with the 'owner' role
+    owner_as_member = OrganizationMember(
+        user_id=current_user.id,
+        role=UserRoleEnum.OWNER,
+        added_at=now
+    )
+    new_organization_data['members'] = [owner_as_member.model_dump()]
+
     # Insert the new organization into the database
     result = await db.organizations.insert_one(new_organization_data)
     
-    # Add the creator as the first member with the 'owner' role
-    await db.organization_members.insert_one({
-        "organization_id": result.inserted_id,
-        "user_id": current_user.id,
-        "role": "owner",
-        "added_at": now
-    })
-
     # Retrieve the newly created organization to return it
     created_organization = await db.organizations.find_one({"_id": result.inserted_id})
     

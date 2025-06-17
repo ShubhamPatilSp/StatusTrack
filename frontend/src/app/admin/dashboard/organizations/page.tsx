@@ -66,6 +66,7 @@ export default function OrganizationsPage() {
 
       const response = await fetch(`${API_URL}/api/v1/organizations`, {
         headers: { 'Authorization': `Bearer ${token}` },
+        cache: 'no-store', // Prevent caching
       });
 
       if (!response.ok) {
