@@ -1,28 +1,3 @@
-<!-- PROJECT BANNER -->
-<br />
-<div align="center">
-  <a href="#">
-    <!-- Suggested: Create a logo with a tool like Canva and upload it to your repo -->
-    <img src="#" alt="Logo" width="80" height="80">
-  </a>
-
-  <h3 align="center">StatusTrack</h3>
-
-  <p align="center">
-    A full-featured, real-time status page application built with FastAPI and Next.js.
-    <!-- Trigger Vercel deploy -->
-<!-- Re-trigger Vercel deploy after reconnecting repo -->
-    <br />
-    <a href="#"><strong>Explore the docs »</strong></a>
-    <br />
-    <br />
-    <a href="#">View Demo</a>
-    ·
-    <a href="#">Report Bug</a>
-    ·
-    <a href="#">Request Feature</a>
-  </p>
-</div>
 
 <!-- TECH STACK BADGES -->
 <div align="center">
