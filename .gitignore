@@ -1,4 +1,27 @@
+# Environments
+.env
+.env.*
+.venv
+venv/
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Screenshots
+screenshots/
+
 # Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 __pycache__/
 *.py[cod]
 *$py.class
